@@ -1,8 +1,8 @@
-import { Redirect, Tabs } from 'expo-router';
+import CustomTabBar from '@/components/CustomTabBar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Redirect, Tabs } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import CustomTabBar from '@/components/CustomTabBar';
 
 export default function TabsLayout() {
   const [checking, setChecking] = useState(true);
@@ -47,7 +47,7 @@ export default function TabsLayout() {
         <Tabs.Screen name="index" />
         <Tabs.Screen name="plan" />
         <Tabs.Screen name="chatbot" />
-        <Tabs.Screen name="metric" />
+        <Tabs.Screen name="recordscreen" />
         <Tabs.Screen name="profile" />
       </Tabs>
 

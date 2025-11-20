@@ -43,15 +43,15 @@ export default function CustomTabBar() {
         </Pressable>
       </View>
 
-      {/* Metric */}
+      {/* RecordScreen */}
       <Pressable
         style={styles.tabBtn}
-        onPress={() => router.push("/(tabs)/metric")}
+        onPress={() => router.push("/(tabs)/recordscreen")}
       >
         <Ionicons
           name="document-text"
           size={26}
-          color={current === "metric" ? "#6C63FF" : "#777"}
+          color={current === "recordscreen" ? "#6C63FF" : "#777"}
         />
       </Pressable>
 
