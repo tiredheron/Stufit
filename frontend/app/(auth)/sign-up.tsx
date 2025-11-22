@@ -20,9 +20,7 @@ export default function SignUpScreen() {
   const [university, setUniversity] = useState("");
   const [department, setDepartment] = useState("");
 
-  // hostUri fallback 처리
-  const host =
-    Constants.expoConfig?.hostUri?.split(":")[0] || "localhost";
+  const host = Constants.expoConfig?.hostUri?.split(":")[0] || "localhost";
   const API_BASE = `http://${host}:4000`;
 
   const handleSignUp = async () => {
@@ -37,7 +35,7 @@ export default function SignUpScreen() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/auth/register`, {
+      const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -48,10 +46,10 @@ export default function SignUpScreen() {
         }),
       });
 
-      const result = await response.json();
+      const data = await res.json();
 
-      if (!response.ok) {
-        Alert.alert(result.message || "회원가입 실패");
+      if (!res.ok) {
+        Alert.alert(data.message || "회원가입 실패");
         return;
       }
 
@@ -64,99 +62,122 @@ export default function SignUpScreen() {
   };
 
   return (
-    <LinearGradient colors={["#f1eeff", "#f7f4ff"]} style={styles.container}>
+    <LinearGradient
+      colors={["#EFEAFF", "#F7F5FF", "#FFFFFF"]}
+      style={{ flex: 1 }}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.inner}
+        style={styles.wrapper}
       >
-        <Text style={styles.title}>회원가입</Text>
+        <View style={styles.card}>
+          <Text style={styles.title}>회원가입</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="아이디"
-          value={userId}
-          onChangeText={setUserId}
-          autoCapitalize="none"
-        />
+          <TextInput
+            placeholder="아이디"
+            placeholderTextColor="#888"
+            style={styles.input}
+            autoCapitalize="none"
+            value={userId}
+            onChangeText={setUserId}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="비밀번호"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+          <TextInput
+            placeholder="비밀번호"
+            placeholderTextColor="#888"
+            secureTextEntry
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="비밀번호 확인"
-          secureTextEntry
-          value={passwordConfirm}
-          onChangeText={setPasswordConfirm}
-        />
+          <TextInput
+            placeholder="비밀번호 확인"
+            placeholderTextColor="#888"
+            secureTextEntry
+            style={styles.input}
+            value={passwordConfirm}
+            onChangeText={setPasswordConfirm}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="학교명"
-          value={university}
-          onChangeText={setUniversity}
-        />
+          <TextInput
+            placeholder="학교명"
+            placeholderTextColor="#888"
+            style={styles.input}
+            value={university}
+            onChangeText={setUniversity}
+          />
 
-        <TextInput
-          style={styles.input}
-          placeholder="학과명"
-          value={department}
-          onChangeText={setDepartment}
-        />
+          <TextInput
+            placeholder="학과명"
+            placeholderTextColor="#888"
+            style={styles.input}
+            value={department}
+            onChangeText={setDepartment}
+          />
 
-        {/* Pressable → 반드시 TouchableOpacity */}
-        <TouchableOpacity style={styles.signUpBtn} onPress={handleSignUp}>
-          <Text style={styles.signUpBtnText}>가입하기</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.loginBtn} onPress={handleSignUp}>
+            <Text style={styles.loginBtnText}>가입하기</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.push("/(auth)/sign-in")}>
-          <Text style={styles.linkText}>이미 계정이 있으신가요? 로그인하기</Text>
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push("/(auth)/sign-in")}>
+            <Text style={styles.linkText}>
+              이미 계정이 있으신가요? 로그인
+            </Text>
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  wrapper: {
     flex: 1,
-  },
-  inner: {
-    flex: 1,
-    paddingHorizontal: 30,
     justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+  card: {
+    width: "100%",
+    maxWidth: 400,
+    backgroundColor: "#ffffff",
+    paddingVertical: 40,
+    paddingHorizontal: 28,
+    borderRadius: 25,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: "700",
-    color: "#6C63FF",
-    marginBottom: 30,
     textAlign: "center",
+    marginBottom: 28,
+    color: "#4B3EFF",
   },
   input: {
-    height: 52,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
+    padding: 14,
     borderRadius: 12,
-    paddingHorizontal: 16,
     marginBottom: 14,
-    fontSize: 15,
+    fontSize: 16,
     borderWidth: 1,
-    borderColor: "rgba(0,0,0,0.08)",
+    borderColor: "#e6e6e6",
   },
-  signUpBtn: {
+  loginBtn: {
     backgroundColor: "#6C63FF",
-    height: 52,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
+    marginTop: 6,
+    shadowColor: "#6C63FF",
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  signUpBtnText: {
+  loginBtnText: {
     color: "#fff",
     fontSize: 17,
     fontWeight: "600",
@@ -166,6 +187,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "#6C63FF",
     textDecorationLine: "underline",
-    marginTop: 15,
+    marginTop: 12,
   },
 });
