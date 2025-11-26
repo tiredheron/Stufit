@@ -9,10 +9,42 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
+
+const host = Constants.expoConfig?.hostUri?.split(":")[0] || "localhost";
+const API_BASE = `http://${host}:4000`;
+
+type PersonalRanking = {
+  rank: number;
+  user_id: string;
+  department: string;
+  studyTime: string;
+  weeklyIncrease: string;
+  isMe: boolean;
+};
+
+type DepartmentRanking = {
+  rank: number;
+  department: string;
+  totalStudyTime: string;
+  avgPerStudent: string;
+  studentCount: number;
+  isMyDepartment: boolean;
+};
 
 export default function RankingScreen() {
   const params = useLocalSearchParams();
   const [selectedTab, setSelectedTab] = useState<"personal" | "department">("personal");
+  const [personalRankings, setPersonalRankings] = useState<PersonalRanking[]>([]);
+  const [departmentRankings, setDepartmentRankings] = useState<DepartmentRanking[]>([]);
+  const [myRank, setMyRank] = useState<number | null>(null);
+  const [myDeptRank, setMyDeptRank] = useState<number | null>(null);
+  const [myStudyTime, setMyStudyTime] = useState<string>("0h 0m");
+  const [myDeptTotalTime, setMyDeptTotalTime] = useState<string>("0h 0m");
+  const [totalStudents, setTotalStudents] = useState<number>(0);
+  const [myDepartment, setMyDepartment] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(true);
 
   // URL 파라미터로 초기 탭 설정
   useEffect(() => {
@@ -23,32 +55,63 @@ export default function RankingScreen() {
     }
   }, [params.tab]);
 
-  // 학과 내 개인 순위 더미 데이터
-  const personalRankings = [
-    { id: 1, rank: 1, name: "이재성", department: "컴퓨터공학과", studyTime: "48h 32m", weeklyIncrease: "+5h" },
-    { id: 2, rank: 2, name: "문상균", department: "컴퓨터공학과", studyTime: "45h 18m", weeklyIncrease: "+3h" },
-    { id: 3, rank: 3, name: "이지원", department: "컴퓨터공학과", studyTime: "42h 50m", weeklyIncrease: "+7h" },
-    { id: 4, rank: 4, name: "이승혜", department: "컴퓨터공학과", studyTime: "38h 25m", weeklyIncrease: "+4h", isMe: true },
-    { id: 5, rank: 5, name: "오민정", department: "컴퓨터공학과", studyTime: "36h 12m", weeklyIncrease: "+2h" },
-    { id: 6, rank: 6, name: "송준표", department: "컴퓨터공학과", studyTime: "33h 47m", weeklyIncrease: "+6h" },
-    { id: 7, rank: 7, name: "우도경", department: "컴퓨터공학과", studyTime: "31h 20m", weeklyIncrease: "+3h" },
-    { id: 8, rank: 8, name: "박민철", department: "컴퓨터공학과", studyTime: "28h 55m", weeklyIncrease: "+5h" },
-    { id: 9, rank: 9, name: "안진수", department: "컴퓨터공학과", studyTime: "28h 55m", weeklyIncrease: "+5h" },
-    { id: 10, rank: 10, name: "황태웅", department: "컴퓨터공학과", studyTime: "28h 55m", weeklyIncrease: "+5h" },
-    { id: 11, rank: 11, name: "김태수", department: "컴퓨터공학과", studyTime: "28h 55m", weeklyIncrease: "+5h" },
-  ];
+  // 개인 순위 데이터 가져오기
+  const fetchPersonalRanking = async () => {
+    try {
+      const userId = await AsyncStorage.getItem("auth_token");
+      if (!userId) return;
 
-  // 학교 내 학과별 순위 더미 데이터
-  const departmentRankings = [
-    { id: 1, rank: 1, department: "컴퓨터공학과", totalStudyTime: "2,847h", avgPerStudent: "42h 15m", studentCount: 67, isMyDepartment: true },
-    { id: 2, rank: 2, department: "유아교육과", totalStudyTime: "2,634h", avgPerStudent: "39h 45m", studentCount: 66 },
-    { id: 3, rank: 3, department: "스마트제조ICT학과", totalStudyTime: "2,512h", avgPerStudent: "38h 20m", studentCount: 65 },
-    { id: 4, rank: 4, department: "전자공학과", totalStudyTime: "2,398h", avgPerStudent: "36h 50m", studentCount: 65 },
-    { id: 5, rank: 5, department: "경영학과", totalStudyTime: "2,156h", avgPerStudent: "33h 12m", studentCount: 65 },
-    { id: 6, rank: 6, department: "심리학과", totalStudyTime: "1,987h", avgPerStudent: "31h 40m", studentCount: 62 },
-    { id: 7, rank: 7, department: "화학과", totalStudyTime: "1,843h", avgPerStudent: "29h 25m", studentCount: 62 },
-    { id: 8, rank: 8, department: "영어영문학과", totalStudyTime: "1,725h", avgPerStudent: "27h 10m", studentCount: 63 },
-  ];
+      console.log("개인 순위 요청:", `${API_BASE}/ranking/personal?user_id=${userId}`);
+      
+      const res = await fetch(`${API_BASE}/ranking/personal?user_id=${userId}`);
+      const data = await res.json();
+
+      console.log("개인 순위 응답:", data);
+
+      if (res.ok) {
+        setPersonalRankings(data.rankings || []);
+        setMyRank(data.myRank);
+        setTotalStudents(data.totalStudents);
+        setMyStudyTime(data.myStudyTime);
+        setMyDepartment(data.department);
+      }
+    } catch (err) {
+      console.error("개인 순위 로드 에러:", err);
+    }
+  };
+
+  // 학과별 순위 데이터 가져오기
+  const fetchDepartmentRanking = async () => {
+    try {
+      const userId = await AsyncStorage.getItem("auth_token");
+      if (!userId) return;
+
+      console.log("학과별 순위 요청:", `${API_BASE}/ranking/department?user_id=${userId}`);
+      
+      const res = await fetch(`${API_BASE}/ranking/department?user_id=${userId}`);
+      const data = await res.json();
+
+      console.log("학과별 순위 응답:", data);
+
+      if (res.ok) {
+        setDepartmentRankings(data.rankings || []);
+        setMyDeptRank(data.myDepartmentRank);
+        setMyDeptTotalTime(data.myDepartmentTotalTime);
+        setMyDepartment(data.myDepartment);
+      }
+    } catch (err) {
+      console.error("학과별 순위 로드 에러:", err);
+    }
+  };
+
+  // 초기 데이터 로드
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      await Promise.all([fetchPersonalRanking(), fetchDepartmentRanking()]);
+      setLoading(false);
+    })();
+  }, []);
 
   const getRankBadge = (rank: number) => {
     if (rank === 1) return "🥇";
@@ -56,6 +119,21 @@ export default function RankingScreen() {
     if (rank === 3) return "🥉";
     return rank;
   };
+
+  if (loading) {
+    return (
+      <LinearGradient colors={["#f4f1ff", "#ffffff"]} style={styles.page}>
+        <View style={styles.centerContainer}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Learning Ranking</Text>
+          </View>
+          <Text style={{ textAlign: "center", marginTop: 100, color: "#888" }}>
+            로딩 중...
+          </Text>
+        </View>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient colors={["#f4f1ff", "#ffffff"]} style={styles.page}>
@@ -110,16 +188,26 @@ export default function RankingScreen() {
           {selectedTab === "personal" ? (
             <>
               <Text style={styles.summaryLabel}>내 순위</Text>
-              <Text style={styles.summaryRank}>4위</Text>
-              <Text style={styles.summaryDetail}>컴퓨터공학과 65명 중</Text>
-              <Text style={styles.summaryTime}>이번 주 학습시간: 38h 25m</Text>
+              <Text style={styles.summaryRank}>
+                {myRank ? `${myRank}위` : "-"}
+              </Text>
+              <Text style={styles.summaryDetail}>
+                {myDepartment} {totalStudents}명 중
+              </Text>
+              <Text style={styles.summaryTime}>
+                이번 주 학습시간: {myStudyTime}
+              </Text>
             </>
           ) : (
             <>
               <Text style={styles.summaryLabel}>우리 학과 순위</Text>
-              <Text style={styles.summaryRank}>3위</Text>
+              <Text style={styles.summaryRank}>
+                {myDeptRank ? `${myDeptRank}위` : "-"}
+              </Text>
               <Text style={styles.summaryDetail}>전체 학과 중</Text>
-              <Text style={styles.summaryTime}>총 학습시간: 2,512h</Text>
+              <Text style={styles.summaryTime}>
+                총 학습시간: {myDeptTotalTime}
+              </Text>
             </>
           )}
         </View>
@@ -131,75 +219,87 @@ export default function RankingScreen() {
         >
           {selectedTab === "personal" ? (
             // 개인 순위 목록
-            personalRankings.map((item) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.rankCard,
-                  item.isMe && styles.rankCardHighlight,
-                ]}
-              >
-                <View style={styles.rankLeft}>
-                  <View style={styles.rankBadge}>
-                    <Text style={styles.rankNumber}>
-                      {getRankBadge(item.rank)}
-                    </Text>
+            personalRankings.length > 0 ? (
+              personalRankings.map((item) => (
+                <View
+                  key={item.user_id}
+                  style={[
+                    styles.rankCard,
+                    item.isMe && styles.rankCardHighlight,
+                  ]}
+                >
+                  <View style={styles.rankLeft}>
+                    <View style={styles.rankBadge}>
+                      <Text style={styles.rankNumber}>
+                        {getRankBadge(item.rank)}
+                      </Text>
+                    </View>
+                    <View style={styles.rankInfo}>
+                      <Text style={[styles.rankName, item.isMe && styles.myName]}>
+                        {item.user_id}
+                        {item.isMe && <Text style={styles.meTag}> (나)</Text>}
+                      </Text>
+                      <Text style={styles.rankDepartment}>{item.department}</Text>
+                    </View>
                   </View>
-                  <View style={styles.rankInfo}>
-                    <Text style={[styles.rankName, item.isMe && styles.myName]}>
-                      {item.name}
-                      {item.isMe && <Text style={styles.meTag}> (나)</Text>}
-                    </Text>
-                    <Text style={styles.rankDepartment}>{item.department}</Text>
-                  </View>
-                </View>
 
-                <View style={styles.rankRight}>
-                  <Text style={styles.studyTime}>{item.studyTime}</Text>
-                  <Text style={styles.weeklyIncrease}>{item.weeklyIncrease}</Text>
+                  <View style={styles.rankRight}>
+                    <Text style={styles.studyTime}>{item.studyTime}</Text>
+                    <Text style={styles.weeklyIncrease}>{item.weeklyIncrease}</Text>
+                  </View>
                 </View>
-              </View>
-            ))
+              ))
+            ) : (
+              <Text style={{ textAlign: "center", color: "#888", marginTop: 40 }}>
+                학습 기록이 없습니다.
+              </Text>
+            )
           ) : (
             // 학과별 순위 목록
-            departmentRankings.map((item) => (
-              <View
-                key={item.id}
-                style={[
-                  styles.rankCard,
-                  item.isMyDepartment && styles.rankCardHighlight,
-                ]}
-              >
-                <View style={styles.rankLeft}>
-                  <View style={styles.rankBadge}>
-                    <Text style={styles.rankNumber}>
-                      {getRankBadge(item.rank)}
-                    </Text>
+            departmentRankings.length > 0 ? (
+              departmentRankings.map((item) => (
+                <View
+                  key={item.department}
+                  style={[
+                    styles.rankCard,
+                    item.isMyDepartment && styles.rankCardHighlight,
+                  ]}
+                >
+                  <View style={styles.rankLeft}>
+                    <View style={styles.rankBadge}>
+                      <Text style={styles.rankNumber}>
+                        {getRankBadge(item.rank)}
+                      </Text>
+                    </View>
+                    <View style={styles.rankInfo}>
+                      <Text
+                        style={[
+                          styles.rankName,
+                          item.isMyDepartment && styles.myName,
+                        ]}
+                      >
+                        {item.department}
+                        {item.isMyDepartment && (
+                          <Text style={styles.meTag}> (우리 학과)</Text>
+                        )}
+                      </Text>
+                      <Text style={styles.rankDepartment}>
+                        {item.studentCount}명 참여
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.rankInfo}>
-                    <Text
-                      style={[
-                        styles.rankName,
-                        item.isMyDepartment && styles.myName,
-                      ]}
-                    >
-                      {item.department}
-                      {item.isMyDepartment && (
-                        <Text style={styles.meTag}> (우리 학과)</Text>
-                      )}
-                    </Text>
-                    <Text style={styles.rankDepartment}>
-                      {item.studentCount}명 참여
-                    </Text>
-                  </View>
-                </View>
 
-                <View style={styles.rankRight}>
-                  <Text style={styles.studyTime}>{item.totalStudyTime}</Text>
-                  <Text style={styles.avgTime}>평균 {item.avgPerStudent}</Text>
+                  <View style={styles.rankRight}>
+                    <Text style={styles.studyTime}>{item.totalStudyTime}</Text>
+                    <Text style={styles.avgTime}>평균 {item.avgPerStudent}</Text>
+                  </View>
                 </View>
-              </View>
-            ))
+              ))
+            ) : (
+              <Text style={{ textAlign: "center", color: "#888", marginTop: 40 }}>
+                학습 기록이 없습니다.
+              </Text>
+            )
           )}
         </ScrollView>
       </View>

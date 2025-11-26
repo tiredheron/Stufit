@@ -3,6 +3,7 @@ const app = express();
 const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const todoRoutes = require("./routes/todoRoutes");
+const rankingRoutes = require("./routes/rankingRoutes");
 
 require("dotenv").config();
 
@@ -13,6 +14,8 @@ app.use(express.json());
 app.use("/auth", authRoutes);
 // 메인페이지 부분의 날짜별 리스트 가져오기
 app.use("/todo", todoRoutes);
+// Learning Ranking 라우터
+app.use("/ranking", rankingRoutes);
 
 
 app.listen(4000, () => {

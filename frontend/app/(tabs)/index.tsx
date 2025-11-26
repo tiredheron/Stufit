@@ -51,10 +51,18 @@ export default function HomeScreen() {
       }
 
       try {
-        const res = await fetch(`${API_BASE}/todo/list?user_id=${userId}`);
+        // 오늘 날짜를 YYYY-MM-DD 형식으로 생성
+        const today = new Date();
+        const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        
+        console.log("초기 로드 URL:", `${API_BASE}/todo/list?user_id=${userId}&date=${dateStr}`);
+        
+        const res = await fetch(`${API_BASE}/todo/list?user_id=${userId}&date=${dateStr}`);
         const data = await res.json();
 
-        if (res.ok) setTasks(data.todos);
+        console.log("초기 로드 응답:", data);
+
+        if (res.ok) setTasks(data.todos || []);
         else console.log(data);
       } catch (err) {
         console.log("Todo fetch error:", err);

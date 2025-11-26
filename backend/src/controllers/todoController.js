@@ -21,15 +21,22 @@ exports.getTodoList = async (req, res) => {
         t.title,
         t.content,
         t.end_time,
+        t.accumulated_time,
         t.status_id,
-        s.status_name
-      FROM todo t
-      JOIN dailyplan d ON t.daily_id = d.daily_id
-      JOIN plan p ON d.plan_id = p.plan_id
-      JOIN todostatus s ON t.status_id = s.status_id
+        s.status_name,
+        d.daily_id,
+        d.title as daily_title
+      FROM Todo t
+      JOIN DailyPlan d ON t.daily_id = d.daily_id
+      JOIN Plan p ON d.plan_id = p.plan_id
+      JOIN TodoStatus s ON t.status_id = s.status_id
       WHERE p.user_id = ?
-      AND d.start_date = ?
+      AND ? BETWEEN d.start_date AND d.end_date
+      ORDER BY t.end_time ASC
     `;
+
+    console.log("실행할 SQL:", sql);
+    console.log("파라미터:", [user_id, date]);
 
     const [rows] = await db.query(sql, [user_id, date]);
 
@@ -37,7 +44,9 @@ exports.getTodoList = async (req, res) => {
       todos: rows,
     });
   } catch (err) {
-    console.log(err);
-    return res.status(500).json({ message: "서버 오류" });
+    console.error("=== 에러 발생 ===");
+    console.error("에러 메시지:", err.message);
+    console.error("전체 에러:", err);
+    return res.status(500).json({ message: "서버 오류", error: err.message });
   }
 };
