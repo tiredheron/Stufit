@@ -1,0 +1,43 @@
+# ----------------------------
+# Python
+# ----------------------------
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+*.log
+
+# 환경 파일 (API 키 등)
+.env
+.env.local
+
+# ----------------------------
+# Node.js
+# ----------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Production build
+dist/
+build/
+
+# ----------------------------
+# OS / Editor
+# ----------------------------
+.DS_Store
+Thumbs.db
+
+# VSCode 설정
+.vscode/
+*.code-workspace
+
+# ----------------------------
+# 기타
+# ----------------------------
+# 파이썬과 노드가 동시에 있는 프로젝트에서 자동 생성되는 캐시들
+.cache/
