@@ -98,16 +98,22 @@ export default function HomeScreen() {
       (async () => {
         const userId = await AsyncStorage.getItem("auth_token");
         if (!userId) return;
+        if (selectedDate === null) return;
 
-        const today = new Date();
-        const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+        // 선택된 날짜 변환
+        const day = selectedDate + 1;
+        const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(
+          day
+        ).padStart(2, "0")}`;
 
-        const res = await fetch(`${API_BASE}/todo/list?user_id=${userId}&date=${dateStr}`);
+        const res = await fetch(
+          `${API_BASE}/todo/list?user_id=${userId}&date=${dateStr}`
+        );
         const data = await res.json();
 
         if (res.ok) setTasks(data.todos || []);
       })();
-    }, [])
+    }, [selectedDate])
   );
 
   // 날짜 안에 진행 전 중 완료에 대한 필터링

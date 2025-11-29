@@ -121,22 +121,31 @@ export default function TaskModal({ visible, onClose, todo, API_BASE, onRefresh 
   };
 
   const closeModal = async () => {
+    // 1) 타이머 즉시 중단
     setRunning(false);
 
-    const delta = seconds - startSeconds; // 증가분만!
+    // 2) running 상태 변화(비동기) 반영을 위해 다음 이벤트 루프로 넘김
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
+    // 3) 증가분 계산
+    const delta = seconds - startSeconds;
+
+    // 4) 증가분이 있을 때만 서버에 저장
     if (delta > 0) {
       await fetch(`${API_BASE}/todo/time`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           todo_id: todo.todo_id,
-          seconds: delta,  
+          seconds: delta,
         }),
       });
     }
 
+    // 5) 리스트 새로고침
     onRefresh();
+
+    // 6) 모달 닫기
     onClose();
   };
 
