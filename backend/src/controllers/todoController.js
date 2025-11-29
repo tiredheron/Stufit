@@ -50,3 +50,60 @@ exports.getTodoList = async (req, res) => {
     return res.status(500).json({ message: "서버 오류", error: err.message });
   }
 };
+
+
+// PATCH /todo/status
+exports.updateStatus = async (req, res) => {
+  const { todo_id, status_id } = req.body;
+
+  if (!todo_id || !status_id) {
+    return res.status(400).json({ message: "todo_id, status_id 필요" });
+  }
+
+  try {
+    let endTimeQuery = "";
+
+    // DONE이면 end_time = NOW()
+    if (status_id === "DONE") {
+      endTimeQuery = ", end_time = NOW()";
+    }
+
+    const sql = `
+      UPDATE Todo
+      SET status_id = ?
+      ${endTimeQuery}
+      WHERE todo_id = ?
+    `;
+
+    await db.query(sql, [status_id, todo_id]);
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("updateStatus Error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};
+
+
+// PATCH /todo/time
+exports.updateTime = async (req, res) => {
+  const { todo_id, seconds } = req.body;
+
+  if (!todo_id || seconds === undefined) {
+    return res.status(400).json({ message: "todo_id, seconds 필요" });
+  }
+
+  try {
+    const sql = `
+      UPDATE Todo
+      SET accumulated_time = accumulated_time + ?
+      WHERE todo_id = ?
+    `;
+    await db.query(sql, [seconds, todo_id]);
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("updateTime Error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+};

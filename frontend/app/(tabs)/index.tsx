@@ -78,6 +78,21 @@ export default function HomeScreen() {
     })();
   }, []);
 
+  const refreshTasks = async () => {
+    const userId = await AsyncStorage.getItem("auth_token");
+    if (!userId) return;
+
+    if (selectedDate === null) return;
+
+    const day = selectedDate + 1;
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2,"0")}`;
+
+    const res = await fetch(`${API_BASE}/todo/list?user_id=${userId}&date=${dateStr}`);
+    const data = await res.json();
+
+    if (res.ok) setTasks(data.todos || []);
+  };
+
   useFocusEffect(
     React.useCallback(() => {
       (async () => {
@@ -203,7 +218,7 @@ export default function HomeScreen() {
     });
   };
 
-  const filters = ["All", "To do", "In Progress", "Completed"];
+  const filters = ["All", "Not Started", "In Progress", "Completed"];
 
   function formatDateTime(isoString: string | null) {
     if (!isoString) return "미완료";
@@ -331,7 +346,7 @@ export default function HomeScreen() {
             <Pressable
               key={item.todo_id}
               onPress={() => {
-                setModalTask(item);
+                setModalTask({ ...item });
                 setModalVisible(true);
               }}
             >
@@ -370,8 +385,10 @@ export default function HomeScreen() {
 
     <TaskModal
       visible={modalVisible}
-      task={modalTask}
       onClose={() => setModalVisible(false)}
+      todo={modalTask}
+      API_BASE={API_BASE}
+      onRefresh={refreshTasks}
     />
     </>
   );

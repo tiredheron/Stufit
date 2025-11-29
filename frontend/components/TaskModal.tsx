@@ -1,74 +1,217 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
-  Modal,
   View,
   Text,
+  TouchableOpacity,
   StyleSheet,
-  Pressable,
-  Platform,
+  Modal,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-
-export type TodoItem = {
-  todo_id: string;
-  content: string;
-  title: string;
-  end_time: string | null;
-  status_name: string;
-  status_id: string;
-};
 
 type TaskModalProps = {
   visible: boolean;
-  task: TodoItem | null;
   onClose: () => void;
+  todo: any;
+  API_BASE: string;
+  onRefresh: () => void;
 };
 
-function formatDateTime(isoString: string | null) {
-    if (!isoString) return "미완료";
+export default function TaskModal({ visible, onClose, todo, API_BASE, onRefresh }: TaskModalProps) {
+  if (!todo) return null;
 
-    const date = new Date(isoString);
+  const [status, setStatus] = useState(todo.status_id);
+  const [seconds, setSeconds] = useState(todo.accumulated_time || 0);
+  const [running, setRunning] = useState(false);
 
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
+  // todo가 업데이트될 때마다 갱신
+  useEffect(() => {
+    if (todo) {
+      setStatus(todo.status_id);
+      setSeconds(todo.accumulated_time || 0);
+    }
+  }, [todo]);
 
-    const hh = String(date.getHours()).padStart(2, "0");
-    const mi = String(date.getMinutes()).padStart(2, "0");
-    const ss = String(date.getSeconds()).padStart(2, "0");
+  const [startSeconds, setStartSeconds] = useState(0);
 
-    return `${yyyy}/${mm}/${dd} | ${hh}:${mi}:${ss}`;
-}
+  // 모달이 열릴 때, 지금 accumulated_time을 기준점으로 저장
+  useEffect(() => {
+    if (visible && todo) {
+      setStartSeconds(todo.accumulated_time || 0);
+      setSeconds(todo.accumulated_time || 0);
+      setStatus(todo.status_id);
+    }
+  }, [visible]);
 
-export default function TaskModal({ visible, task, onClose }: TaskModalProps) {
-  if (!task) return null;
+
+  // 타이머 작동
+  useEffect(() => {
+    let timer: any;
+
+    if (running) {
+      timer = setInterval(() => {
+        setSeconds((prev: number) => prev + 1);
+      }, 1000);
+    }
+
+    return () => clearInterval(timer);
+  }, [running]);
+
+  // 10초마다 서버로 저장
+  useEffect(() => {
+    if (seconds > 0 && seconds % 10 === 0) {
+      saveTime(10);
+    }
+  }, [seconds]);
+
+  const saveTime = async (sec: number) => {
+    await fetch(`${API_BASE}/todo/time`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        todo_id: todo.todo_id,
+        seconds: sec,
+      }),
+    });
+
+    onRefresh();
+  };
+
+  // 상태 변경 저장
+  const changeStatus = async (newStatus: string) => {
+    await fetch(`${API_BASE}/todo/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        todo_id: todo.todo_id,
+        status_id: newStatus,
+      }),
+    });
+
+    if (newStatus === "DONE") {
+      setRunning(false);
+    }
+
+    setStatus(newStatus);
+
+    onRefresh();
+  };
+
+  // 상태 순환 함수
+  const cycleStatus = () => {
+    if (status === "DONE") return; // 완료면 더 이상 변경 불가
+
+    const next =
+      status === "NOT_STARTED"
+        ? "IN_PROGRESS"
+        : status === "IN_PROGRESS"
+        ? "DONE"
+        : "DONE";
+
+    changeStatus(next);
+  };
+
+  // 초 → 시:분:초
+  const formatTime = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+
+    return `${h.toString().padStart(2, "0")}:${m
+      .toString()
+      .padStart(2, "0")}:${ss.toString().padStart(2, "0")}`;
+  };
+
+  const closeModal = async () => {
+    setRunning(false);
+
+    const delta = seconds - startSeconds; // 증가분만!
+
+    if (delta > 0) {
+      await fetch(`${API_BASE}/todo/time`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          todo_id: todo.todo_id,
+          seconds: delta,  
+        }),
+      });
+    }
+
+    onRefresh();
+    onClose();
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
-        <View style={styles.modalBox}>
-          
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>{task.title}</Text>
+        <View style={styles.modalContainer}>
+          {/* 제목 */}
+          <Text style={styles.title}>{todo.title}</Text>
 
-            <Pressable onPress={onClose}>
-              <Ionicons name="close" size={28} color="#444" />
-            </Pressable>
-          </View>
+          {/* 내용 */}
+          <Text style={styles.content}>{todo.content}</Text>
 
-          <Text style={styles.section}>내용</Text>
-          <Text style={styles.text}>{task.content}</Text>
+          {/* 상태 표시 */}
+          <Text style={styles.label}>
+            현재 상태:{" "}
+            {status === "NOT_STARTED"
+              ? "진행전"
+              : status === "IN_PROGRESS"
+              ? "진행중"
+              : "완료"}
+          </Text>
 
-          <Text style={styles.section}>상태</Text>
-          <Text style={styles.text}>{task.status_name}</Text>
+          {/* 상태 변경 버튼 하나 */}
+          <TouchableOpacity
+            style={[
+              styles.statusCycleBtn,
+              status === "DONE" && { backgroundColor: "#bbb" },
+            ]}
+            onPress={cycleStatus}
+            disabled={status === "DONE"}
+          >
+            <Text style={styles.btnText}>
+              {status === "NOT_STARTED"
+                ? "진행중으로 변경"
+                : status === "IN_PROGRESS"
+                ? "완료로 변경"
+                : "완료됨"}
+            </Text>
+          </TouchableOpacity>
 
-          <Text style={styles.section}>마감 시간</Text>
-          <Text style={styles.text}>{formatDateTime(task.end_time) || "미완료"}</Text>
+          {/* 공부 시간: 진행중 또는 완료일 때는 시간 표시 */}
+          {(status === "IN_PROGRESS" || status === "DONE") && (
+            <>
+              <Text style={styles.label}>공부 시간</Text>
+              <Text style={styles.timer}>{formatTime(seconds)}</Text>
 
-          <Pressable style={styles.closeBtn} onPress={onClose}>
-            <Text style={styles.closeBtnText}>닫기</Text>
-          </Pressable>
+              {/* 진행중(IN_PROGRESS)일 때만 버튼 표시 */}
+              {status === "IN_PROGRESS" && (
+                <View style={styles.timerButtons}>
+                  {!running ? (
+                    <TouchableOpacity
+                      style={styles.startBtn}
+                      onPress={() => setRunning(true)}
+                    >
+                      <Text style={styles.btnText}>타이머 시작</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.stopBtn}
+                      onPress={() => setRunning(false)}
+                    >
+                      <Text style={styles.btnText}>타이머 정지</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </>
+)}
+
+
+          {/* 닫기 */}
+          <TouchableOpacity style={styles.closeBtn} onPress={closeModal}>
+            <Text style={styles.btnText}>닫기</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -78,39 +221,71 @@ export default function TaskModal({ visible, task, onClose }: TaskModalProps) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
     justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
   },
-  modalBox: {
-    width: "100%",
-    maxWidth: 420,
+  modalContainer: {
+    width: "90%",              // 화면 기준 90%
+    maxWidth: 820,             // 너가 원하는 최대 폭
+    alignSelf: "center",       // 중앙 정렬
+    margin: 20,
+    padding: 20,
     backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    ...(Platform.OS === "web"
-      ? { boxShadow: "0 4px 12px rgba(0,0,0,0.15)" }
-      : {
-          shadowColor: "#000",
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-        }),
+    borderRadius: 12,
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 12,
   },
-  title: { fontSize: 20, fontWeight: "700" },
-  section: { marginTop: 15, fontSize: 13, fontWeight: "700", color: "#555" },
-  text: { fontSize: 16, color: "#333", marginTop: 4 },
+  content: {
+    fontSize: 16,
+    marginBottom: 20,
+    color: "#555",
+  },
+  label: {
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  statusCycleBtn: {
+    marginTop: 10,
+    paddingVertical: 6,        // 더 얇게
+    paddingHorizontal: 12,     // 가로도 조금 줄임
+    backgroundColor: "#6C63FF",
+    borderRadius: 6,
+    alignSelf: "flex-start",   // 왼쪽으로 붙이기
+    justifyContent: "center",
+  },
+  timer: {
+    marginTop: 5,
+    fontSize: 28,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  timerButtons: {
+    marginTop: 10,
+    alignItems: "center",
+  },
+  startBtn: {
+    padding: 10,
+    borderRadius: 6,
+    backgroundColor: "#4caf50",
+  },
+  stopBtn: {
+    padding: 10,
+    borderRadius: 6,
+    backgroundColor: "#e75454",
+  },
   closeBtn: {
     marginTop: 20,
+    padding: 12,
+    borderRadius: 6,
     backgroundColor: "#6C63FF",
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: "center",
   },
-  closeBtnText: { color: "#fff", fontWeight: "700" },
+  btnText: {
+    color: "#fff",
+    textAlign: "center",
+    fontWeight: "bold",
+  },
 });
