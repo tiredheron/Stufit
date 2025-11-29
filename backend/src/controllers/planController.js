@@ -91,13 +91,6 @@ exports.createPlan = async (req, res) => {
   }
 };
 
-function addDays(dateStr, days) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);  // YYYY-MM-DD
-}
-
-// 3) AI 계획 + Todos 저장 (PlanAI 화면에서 "이 계획으로 할게요")
 // 3) AI 계획 + Todos 저장 (PlanAI 화면에서 "이 계획으로 할게요")
 exports.saveAiPlan = async (req, res) => {
   try {
@@ -109,7 +102,7 @@ exports.saveAiPlan = async (req, res) => {
       });
     }
 
-    // 0) Plan 정보 가져오기 (start_date 사용해야 함)
+    // 0) Plan start_date 가져오기
     const [planRows] = await db.query(
       `SELECT start_date FROM Plan WHERE plan_id = ?`,
       [plan_id]
@@ -119,45 +112,53 @@ exports.saveAiPlan = async (req, res) => {
       return res.status(400).json({ error: "해당 plan_id 없음" });
     }
 
-    const planStartDate = planRows[0].start_date; // YYYY-MM-DD
+    let planStartDate = planRows[0].start_date;
 
-    if (!planStartDate) {
-      return res.status(400).json({
-        error: "Plan의 start_date가 필요합니다. Plan 생성 시 start_date를 설정하세요.",
-      });
+    // MySQL DATE는 JS Date 객체로 오므로, 로컬 YYYY-MM-DD로 변환
+    if (planStartDate instanceof Date) {
+      planStartDate =
+        planStartDate.getFullYear() +
+        "-" +
+        String(planStartDate.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(planStartDate.getDate()).padStart(2, "0");
     }
 
     // 날짜 더하기 유틸
     function addDays(dateStr, days) {
-      const d = new Date(dateStr);
+      const [year, month, day] = dateStr.split("-").map(Number);
+
+      const d = new Date(year, month - 1, day);
       d.setDate(d.getDate() + days);
-      return d.toISOString().slice(0, 10);
+
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+
+      return `${yyyy}-${mm}-${dd}`;
     }
 
     let savedDailyIds = [];
     let savedTodoCount = 0;
 
-    // todos = [{ day: 1, todos: [...] }, { day: 2, todos: [...] }]
     for (const dayBlock of todos) {
-      const day = dayBlock.day; // ex) 1일차
+      const day = dayBlock.day;
       const dayTodos = dayBlock.todos || [];
 
-      // Day N 날짜 = planStartDate + (day-1)
       const currentDate = addDays(planStartDate, day - 1);
 
       const dailyId = await generateDailyId(plan_id);
 
-      // Daily 생성
+      // DailyPlan 저장
       await db.query(
         `INSERT INTO DailyPlan
-          (daily_id, plan_id, title, description,
-           start_date, end_date, create_at, is_ai_plan)
-        VALUES (?, ?, ?, ?, ?, ?, NOW(), true)`,
+          (daily_id, plan_id, title, description, start_date, end_date, create_at, is_ai_plan)
+         VALUES (?, ?, ?, ?, ?, ?, NOW(), true)`,
         [
           dailyId,
           plan_id,
-          `Day ${day}`,          // 제목
-          ai_plan_text || "",    // 설명 또는 AI 플랜 원문
+          `Day ${day}`,
+          ai_plan_text || "",
           currentDate,
           currentDate,
         ]
@@ -169,7 +170,7 @@ exports.saveAiPlan = async (req, res) => {
         date: currentDate,
       });
 
-      // --- Todo 저장 ---
+      // Todo 저장
       for (const t of dayTodos) {
         const todoId = await generateTodoId(dailyId);
 
@@ -182,7 +183,7 @@ exports.saveAiPlan = async (req, res) => {
             dailyId,
             t.title,
             t.content,
-            t.status_id || DEFAULT_TODO_STATUS,
+            DEFAULT_TODO_STATUS,
             t.accumulated_time ?? 0,
           ]
         );
@@ -197,6 +198,7 @@ exports.saveAiPlan = async (req, res) => {
       saved_todo_count: savedTodoCount,
       daily_info: savedDailyIds,
     });
+
   } catch (e) {
     console.error("saveAiPlan Error:", e);
     return res.status(500).json({ error: "AI 계획 저장 중 오류" });

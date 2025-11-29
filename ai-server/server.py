@@ -80,7 +80,7 @@ async def call_ollama(prompt: str, user_msg: str):
             {"role": "user", "content": user_msg},
         ],
         "stream": False,
-        "num_predict": 4096,
+        "num_predict": 8096,
     }
 
     async with httpx.AsyncClient(timeout=360) as client:
@@ -94,20 +94,25 @@ async def call_ollama(prompt: str, user_msg: str):
 # ======================================
 def build_text_plan_prompt(num_days, today, ppt_text=None):
 
-    ppt_block = f"\n[PPT 참고]\n{ppt_text[:1500]}\n" if ppt_text else ""
+    ppt_block = f"\n[PPT 참고]\n{ppt_text[:]}\n" if ppt_text else ""
 
     return f"""
-            You are a Korean study plan generator.
+            당신은 한국어 학습 계획을 전문적으로 작성하는 AI입니다.
 
-            Write ONLY a Korean study plan for {num_days} days.
-            - 하루별 목표
-            - 하루별 해야 할 일 2~4개
-            - 실습, 복습 내용 포함
-            - 자연스러운 한국어 문장 유지
-            - JSON 또는 코드블록 절대 출력 금지
+            [요구사항]
+            - 총 {num_days}일 동안의 학습 계획을 작성합니다.
+            - 하루별로 다음을 포함하세요:
+            • 그날의 학습 목표 1개
+            • 해야 할 구체적인 학습 작업 2~4개
+            • 짧은 복습 또는 실습 항목 1개 포함
+            - 모든 문장은 자연스럽고 실제 사람이 쓴 것처럼 구성합니다.
+            - 전체 출력은 ‘한국어 설명 텍스트 ONLY’로 작성합니다.
+            - JSON, 코드블록, 목록 마크다운 금지.
+            - 날짜 정보(Today: {today})는 참고만 하세요.
 
-            Today: {today}
             {ppt_block}
+
+            한국어 학습 계획 작성을 시작하세요.
             """
 
 
@@ -116,12 +121,14 @@ def build_text_plan_prompt(num_days, today, ppt_text=None):
 # ======================================
 def build_json_prompt(num_days, today, ppt_text=None):
 
-    ppt_block = f"\n[PPT 참고]\n{ppt_text[:1500]}\n" if ppt_text else ""
+    ppt_block = f"\n[PPT 참고]\n{ppt_text[:]}\n" if ppt_text else ""
 
     return f"""
-            You must output ONLY a JSON array for a {num_days}-day plan.
+            당신은 한국어 학습 계획을 JSON 형식으로 변환하는 역할만 수행합니다.
+            아래 조건을 반드시 지키세요.
 
-            ### FINAL OUTPUT FORMAT (EXTREMELY STRICT)
+            [출력 형식(엄격히 준수)]
+            JSON 배열 ONLY 출력:
             [
               {{
                 "day": 1,
@@ -143,21 +150,18 @@ def build_json_prompt(num_days, today, ppt_text=None):
               ...
             ]
 
-            ### RULES
-            - JSON ONLY. No markdown, no explanation.
-            - Each day MUST contain 2~4 detailed todos.
-            - All todos must be actionable and specific.
-            - Avoid vague tasks.
-            - If PPT reference exists, include terminology naturally.
-            - Maintain Korean content inside strings only.
-            - 'day' MUST start from 1 and increment sequentially.
-
-            ### OUTPUT RULES
-            - Do NOT wrap JSON in code blocks.
-            - Do NOT include Korean text outside of JSON values.
-            - MUST be syntactically valid JSON.
+            [규칙]
+            - JSON 외 텍스트 절대 출력 금지.
+            - 코드블록, 해설, 불필요한 문장 추가 금지.
+            - day는 1부터 {num_days}까지 순차 증가.
+            - 각 day의 todos는 2~4개.
+            - title, content는 한국어로 명확한 작업 설명.
+            - PPT 참고 내용은 content에 자연스럽게 반영할 것.
+            - JSON 문법 오류(쉼표/따옴표 누락 등) 절대 금지.
 
             {ppt_block}
+
+            이제 위 형식대로 JSON만 출력하세요.
             """
 
 # ======================================
