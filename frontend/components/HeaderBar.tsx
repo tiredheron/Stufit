@@ -2,16 +2,19 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface HeaderBarProps {
   contentWidth: number;
+  userId?: string | null;   // ⭐ 추가
 }
 
-export default function HeaderBar({ contentWidth }: HeaderBarProps) {
+export default function HeaderBar({ contentWidth, userId }: HeaderBarProps) {
   return (
     <View style={[styles.header, { width: contentWidth, marginBottom: 20 }]}>
       <View style={styles.avatar} />
 
       <View>
         <Text style={styles.hello}>Hello!</Text>
-        <Text style={styles.name}>Susom02</Text>
+
+        {/* ⭐ userId 표시, 없으면 "User" */}
+        <Text style={styles.name}>{userId || "User"}</Text>
       </View>
 
       <Pressable style={styles.notification}>

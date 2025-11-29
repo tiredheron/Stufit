@@ -1,50 +1,51 @@
-import React, { useEffect, useState } from "react";
-import {
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import React from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 interface TodayProgressCardProps {
   contentWidth: number;
-
-  studyHourTime?: number;     // 내가 공부한 시간
-  studyMinTime?: number;
-  overallRank?: number;   // 전체 랭킹
-  majorRank?: number;     // 학과 랭킹
-
-  onPressOverall?: () => void; // 전체 랭킹 페이지 이동
-  onPressMajor?: () => void;   // 학과 랭킹 페이지 이동
+  studyTime: number; // 부모로부터 받는 총 합산 시간 (초 단위)
+  overallRank?: number;
+  majorRank?: number;
+  onPressOverall?: () => void;
+  onPressMajor?: () => void;
 }
 
 export default function TodayProgressCard({
   contentWidth,
-  studyHourTime = 124,
-  studyMinTime = 56,
+  studyTime = 0,
   overallRank = 12,
   majorRank = 5,
   onPressOverall,
   onPressMajor,
 }: TodayProgressCardProps) {
+  /* 시간 포맷 (HHh MMm SSs) */
+  const formatTime = (sec: number) => {
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const s = sec % 60;
+    // 초 단위까지 보여주면 생동감이 있습니다. 원치 않으면 s 부분 제거 가능
+    return `${h}h ${m}m ${s}s`;
+  };
+
   return (
     <View style={[styles.card, { width: contentWidth }]}>
-      {/* LEFT — 공부시간 */}
+      {/* LEFT: 시간 표시 영역 */}
       <View style={styles.leftBox}>
-        <Text style={styles.label}>You studied</Text>
-        <Text style={styles.time}>{studyHourTime}h {studyMinTime}m</Text>
-        <Text style={styles.sub}>Total Study Time</Text>
+        <Text style={styles.label}>Total Study Time</Text>
+        <Text style={styles.time}>{formatTime(studyTime)}</Text>
+        <Text style={styles.sub}>Keep pushing forward! 🔥</Text>
       </View>
 
-      {/* RIGHT — 두 개 버튼 */}
+      {/* RIGHT: 랭킹 버튼 영역 */}
       <View style={styles.rightBox}>
         <RankButton
+          icon="🏆"
           label="전체 랭킹"
           rank={overallRank}
           onPress={onPressOverall}
         />
         <RankButton
+          icon="🎓"
           label="학과 랭킹"
           rank={majorRank}
           onPress={onPressMajor}
@@ -55,134 +56,55 @@ export default function TodayProgressCard({
   );
 }
 
-/**********************************************************************
- * RankButton
- * 
- * Desktop(Web):
- *  - Hover 시 숫자 0 → rank 로 카운트 애니메이션
- *  - Hover 시 scale + shadow 강화
- *
- * Mobile:
- *  - 클릭하면 "전체 랭킹: X등" / "학과 랭킹: X등" 으로 토글
- **********************************************************************/
-function RankButton({
-  label,
-  rank,
-  onPress,
-  style,
-}: {
-  label: string;
-  rank: number;
-  onPress?: () => void;
-  style?: any;
-}) {
-  const [isHovered, setIsHovered] = useState(false);  // 웹 hover
-  const [isOpened, setIsOpened] = useState(false);    // 클릭 toggle
-  const [displayValue, setDisplayValue] = useState(0);
-
-  /* ------------------- 웹 Hover 카운트 애니메이션 ------------------- */
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-
-    let frameId: number | null = null;
-
-    if (isHovered) {
-      const duration = 600;
-      const start = performance.now();
-
-      const tick = (now: number) => {
-        const elapsed = now - start;
-        const t = Math.min(elapsed / duration, 1);
-        const value = Math.round(rank * t);
-        setDisplayValue(value);
-
-        if (t < 1) frameId = requestAnimationFrame(tick);
-      };
-
-      frameId = requestAnimationFrame(tick);
-    } else {
-      setDisplayValue(0);
-    }
-
-    return () => {
-      if (frameId) cancelAnimationFrame(frameId);
-    };
-  }, [isHovered, rank]);
-
-  /* ------------------- 화면에 보일 텍스트 결정 ------------------- */
-  let buttonLabel = label;
-
-  // 1순위: 웹 hover 중이면 숫자 카운트 표시
-  if (Platform.OS === "web" && isHovered && displayValue > 0) {
-    buttonLabel = `${displayValue}위`;
-  }
-  // 2순위: 클릭해서 열린 상태면 라벨 + 등수
-  else if (isOpened) {
-    buttonLabel = `${label}: ${rank}등`;
-  }
-
+function RankButton({ icon, label, rank, onPress, style }: any) {
   return (
-    <Pressable
-      onPress={() => {
-        setIsOpened(prev => !prev); // 웹/모바일 공통 토글
-        onPress?.();               // 페이지 이동 콜백 (있다면)
-      }}
-      style={({ hovered }) => [
-        styles.rankBtn,
-        style,
-        hovered && Platform.OS === "web" ? styles.rankBtnHover : null,
-      ]}
-      onHoverIn={() => Platform.OS === "web" && setIsHovered(true)}
-      onHoverOut={() => Platform.OS === "web" && setIsHovered(false)}
-    >
-      <Text style={styles.rankText}>{buttonLabel}</Text>
+    <Pressable onPress={onPress} style={[styles.rankBtn, style]}>
+      <Text style={styles.icon}>{icon}</Text>
+      <Text style={styles.rankText}>
+        {label}: {rank}등
+      </Text>
     </Pressable>
   );
 }
 
-/**********************************************************************
- * Styles
- **********************************************************************/
 const styles = StyleSheet.create({
-  /* 전체 카드 */
   card: {
     flexDirection: "row",
     justifyContent: "space-between",
     backgroundColor: "#5F33E1",
     borderRadius: 24,
     padding: 22,
-    minHeight: 150,
+    minHeight: 150, // 버튼이 빠져서 높이를 살짝 줄임
     alignItems: "center",
-    ...(Platform.OS === "web"
-      ? { boxShadow: "0 8px 18px rgba(0,0,0,0.08)" as any }
-      : { elevation: 4 }),
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: "#5F33E1",
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 8,
   },
-
-  /* 왼쪽 */
-  leftBox: { flex: 1 },
-  label: { color: "#EEE9FF", fontSize: 14 },
-  time: { fontSize: 32, color: "#fff", fontWeight: "800", marginTop: 6 },
-  sub: { color: "#E4DFFF", fontSize: 12, marginTop: 2 },
-
-  /* 오른쪽 버튼 영역 */
-  rightBox: {
-    width: 130,
-    justifyContent: "center",
+  leftBox: { flex: 1, justifyContent: "center" },
+  label: { color: "#EEE9FF", fontSize: 14, fontWeight: "500" },
+  time: {
+    fontSize: 36, // 숫자를 더 강조
+    color: "#fff",
+    fontWeight: "800",
+    marginTop: 8,
+    fontVariant: ["tabular-nums"], // 숫자가 바뀔 때 너비 고정
   },
-
+  sub: { color: "#B8A3FF", fontSize: 13, marginTop: 6, fontWeight: "500" },
+  
+  rightBox: { width: 140, justifyContent: "center" },
   rankBtn: {
     backgroundColor: "#EEE9FF",
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 14,
     alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
   },
-
-  /* 웹 hover 스타일 */
-  rankBtnHover: {
-    transform: [{ scale: 1.05 }],
-    boxShadow: "0px 4px 12px rgba(0,0,0,0.15)" as any,
-  },
-
+  icon: { fontSize: 16 },
   rankText: {
     color: "#5F33E1",
     fontWeight: "700",

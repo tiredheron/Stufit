@@ -17,5 +17,5 @@ router.post("/", planController.createPlan);   // POST /api/plans
 // 3) AI로 생성된 JSON + 텍스트 저장
 // POST /api/plans/ai/save
 router.post("/ai/save", planController.saveAiPlan);
-
+router.get("/full-list", planController.getPlansWithTodos);
 module.exports = router;

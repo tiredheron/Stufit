@@ -1,4 +1,4 @@
-// controllers/planController.js
+// src/controllers/planController.js
 const db = require("../db");
 
 // ID 유틸
@@ -49,7 +49,7 @@ async function generateTodoId(dailyId) {
 
 const DEFAULT_TODO_STATUS = "NOT_STARTED";
 
-// 1) Plan 목록
+// 1) Plan 단순 목록
 exports.getPlans = async (req, res) => {
   const { user_id } = req.query;
   if (!user_id)
@@ -114,7 +114,7 @@ exports.saveAiPlan = async (req, res) => {
 
     let planStartDate = planRows[0].start_date;
 
-    // MySQL DATE는 JS Date 객체로 오므로, 로컬 YYYY-MM-DD로 변환
+    // MySQL DATE → YYYY-MM-DD 문자열로
     if (planStartDate instanceof Date) {
       planStartDate =
         planStartDate.getFullYear() +
@@ -202,5 +202,110 @@ exports.saveAiPlan = async (req, res) => {
   } catch (e) {
     console.error("saveAiPlan Error:", e);
     return res.status(500).json({ error: "AI 계획 저장 중 오류" });
+  }
+};
+
+// 4) Plan + DailyPlan + Todo 전체 트리 (RecordScreen / SubjectGroups용)
+exports.getPlansWithTodos = async (req, res) => {
+  const { user_id } = req.query;
+
+  if (!user_id) {
+    return res.status(400).json({ message: "user_id는 필수입니다." });
+  }
+
+  try {
+    // 1. Plan + DailyPlan
+    const planSql = `
+      SELECT 
+        p.plan_id, 
+        p.title AS plan_title, 
+        p.description, 
+        d.daily_id, 
+        d.title AS daily_title, 
+        d.start_date, 
+        d.end_date
+      FROM Plan p
+      JOIN DailyPlan d ON p.plan_id = d.plan_id
+      WHERE p.user_id = ?
+      ORDER BY p.create_at DESC, d.start_date DESC
+    `;
+    const [planRows] = await db.query(planSql, [user_id]);
+
+    if (planRows.length === 0) {
+      return res.json({ plans: [] });
+    }
+
+    // 2. Todo 목록 (해당 DailyPlan들에 속한 것들)
+    const dailyIds = planRows.map((row) => row.daily_id);
+    const todoSql = `
+      SELECT 
+        t.todo_id, 
+        t.daily_id, 
+        t.title, 
+        t.content, 
+        t.accumulated_time, 
+        t.status_id, 
+        s.status_name
+      FROM Todo t
+      JOIN TodoStatus s ON t.status_id = s.status_id
+      WHERE t.daily_id IN (?)
+      ORDER BY t.end_time ASC
+    `;
+    const [todoRows] = await db.query(todoSql, [dailyIds]);
+
+    // 3. Plan → DailyPlan → Todo 트리 조립
+    const plansMap = new Map();
+
+    for (const row of planRows) {
+      if (!plansMap.has(row.plan_id)) {
+        plansMap.set(row.plan_id, {
+          plan_id: row.plan_id,
+          title: row.plan_title,
+          description: row.description,
+          dailyPlans: new Map(), // dailyPlans를 Map으로 잠시 보관
+        });
+      }
+
+      const plan = plansMap.get(row.plan_id);
+
+      if (!plan.dailyPlans.has(row.daily_id)) {
+        plan.dailyPlans.set(row.daily_id, {
+          daily_id: row.daily_id,
+          title: row.daily_title,
+          todos: [],
+        });
+      }
+    }
+
+    for (const todoRow of todoRows) {
+      const relatedPlanRow = planRows.find(
+        (p) => p.daily_id === todoRow.daily_id
+      );
+      if (!relatedPlanRow) continue;
+
+      const plan = plansMap.get(relatedPlanRow.plan_id);
+      const dailyPlan = plan.dailyPlans.get(todoRow.daily_id);
+
+      dailyPlan.todos.push({
+        todo_id: todoRow.todo_id,
+        title: todoRow.title,
+        content: todoRow.content,
+        accumulated_time: todoRow.accumulated_time || 0,
+        status_id: todoRow.status_id,
+        // status_name은 지금 UI 타입엔 없으니 필요하면 나중에 추가
+      });
+    }
+
+    // Map → 배열로 변환
+    const resultPlans = Array.from(plansMap.values()).map((plan) => {
+      plan.dailyPlans = Array.from(plan.dailyPlans.values());
+      return plan;
+    });
+
+    return res.json({ plans: resultPlans });
+  } catch (err) {
+    console.error("=== getPlansWithTodos 에러 발생 ===");
+    console.error("에러 메시지:", err.message);
+    return res.status(500).json({ message: "서버 오류", error: err.message });
   }
 };
