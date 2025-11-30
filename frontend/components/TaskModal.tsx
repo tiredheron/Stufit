@@ -16,28 +16,33 @@ type TaskModalProps = {
 };
 
 export default function TaskModal({ visible, onClose, todo, API_BASE, onRefresh }: TaskModalProps) {
-  if (!todo) return null;
+  const safeTodo = todo ?? {
+    todo_id: "",
+    title: "",
+    content: "",
+    accumulated_time: 0,
+    status_id: "NOT_STARTED",
+  };
 
-  const [status, setStatus] = useState(todo.status_id);
-  const [seconds, setSeconds] = useState(todo.accumulated_time || 0);
+
+  const [status, setStatus] = useState(safeTodo.status_id);
+  const [seconds, setSeconds] = useState(safeTodo.accumulated_time || 0);
   const [running, setRunning] = useState(false);
 
-  // todo가 업데이트될 때마다 갱신
+  // setTodo가 업데이트될 때마다 갱신
   useEffect(() => {
-    if (todo) {
-      setStatus(todo.status_id);
-      setSeconds(todo.accumulated_time || 0);
-    }
-  }, [todo]);
+    setStatus(safeTodo.status_id);
+    setSeconds(safeTodo.accumulated_time || 0);
+  }, [safeTodo]);
 
   const [startSeconds, setStartSeconds] = useState(0);
 
   // 모달이 열릴 때, 지금 accumulated_time을 기준점으로 저장
   useEffect(() => {
-    if (visible && todo) {
-      setStartSeconds(todo.accumulated_time || 0);
-      setSeconds(todo.accumulated_time || 0);
-      setStatus(todo.status_id);
+    if (visible) {
+      setStartSeconds(safeTodo.accumulated_time || 0);
+      setSeconds(safeTodo.accumulated_time || 0);
+      setStatus(safeTodo.status_id);
     }
   }, [visible]);
 
@@ -68,7 +73,7 @@ export default function TaskModal({ visible, onClose, todo, API_BASE, onRefresh 
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        todo_id: todo.todo_id,
+        todo_id: safeTodo.todo_id,
         seconds: sec,
       }),
     });
@@ -82,7 +87,7 @@ export default function TaskModal({ visible, onClose, todo, API_BASE, onRefresh 
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        todo_id: todo.todo_id,
+        todo_id: safeTodo.todo_id,
         status_id: newStatus,
       }),
     });
@@ -137,7 +142,7 @@ export default function TaskModal({ visible, onClose, todo, API_BASE, onRefresh 
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          todo_id: todo.todo_id,
+          todo_id: safeTodo.todo_id,
           seconds: delta,
         }),
       });
@@ -155,10 +160,10 @@ export default function TaskModal({ visible, onClose, todo, API_BASE, onRefresh 
       <View style={styles.overlay}>
         <View style={styles.modalContainer}>
           {/* 제목 */}
-          <Text style={styles.title}>{todo.title}</Text>
+          <Text style={styles.title}>{safeTodo.title}</Text>
 
           {/* 내용 */}
-          <Text style={styles.content}>{todo.content}</Text>
+          <Text style={styles.content}>{safeTodo.content}</Text>
 
           {/* 상태 표시 */}
           <Text style={styles.label}>
